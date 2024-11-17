@@ -13,17 +13,18 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import com.acmerobotics.dashboard.config.Config;
-import com.acmerobotics.dashboard.config.ValueProvider;
-import com.acmerobotics.dashboard.config.reflection.ReflectionConfig;
-import com.acmerobotics.dashboard.config.variable.CustomVariable;
-import com.acmerobotics.dashboard.message.Message;
-import com.acmerobotics.dashboard.message.redux.InitOpMode;
-import com.acmerobotics.dashboard.message.redux.ReceiveGamepadState;
-import com.acmerobotics.dashboard.message.redux.ReceiveImage;
-import com.acmerobotics.dashboard.message.redux.ReceiveOpModeList;
-import com.acmerobotics.dashboard.message.redux.ReceiveRobotStatus;
-import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
+
+import com.cuttlefish.dashboard.config.Config;
+import com.cuttlefish.dashboard.config.ValueProvider;
+import com.cuttlefish.dashboard.config.reflection.ReflectionConfig;
+import com.cuttlefish.dashboard.config.variable.CustomVariable;
+import com.cuttlefish.dashboard.message.Message;
+import com.cuttlefish.dashboard.message.redux.InitOpMode;
+import com.cuttlefish.dashboard.message.redux.ReceiveGamepadState;
+import com.cuttlefish.dashboard.message.redux.ReceiveImage;
+import com.cuttlefish.dashboard.message.redux.ReceiveOpModeList;
+import com.cuttlefish.dashboard.message.redux.ReceiveRobotStatus;
+import com.cuttlefish.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.ftccommon.FtcEventLoop;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
@@ -37,19 +38,7 @@ import com.qualcomm.robotcore.util.RobotLog;
 import com.qualcomm.robotcore.util.ThreadPool;
 import com.qualcomm.robotcore.util.WebHandlerManager;
 import com.qualcomm.robotcore.util.WebServer;
-import dalvik.system.DexFile;
-import fi.iki.elonen.NanoHTTPD;
-import fi.iki.elonen.NanoWSD;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
+
 import org.firstinspires.ftc.ftccommon.external.OnCreate;
 import org.firstinspires.ftc.ftccommon.external.OnCreateEventLoop;
 import org.firstinspires.ftc.ftccommon.external.OnCreateMenu;
@@ -69,6 +58,23 @@ import org.firstinspires.ftc.robotcore.internal.system.Misc;
 import org.firstinspires.ftc.robotcore.internal.webserver.WebHandler;
 import org.firstinspires.ftc.robotserver.internal.webserver.MimeTypesUtil;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+
+import dalvik.system.DexFile;
+import fi.iki.elonen.NanoHTTPD;
+import fi.iki.elonen.NanoWSD;
+
 /**
  * Main class for interacting with the instance.
  */
@@ -84,6 +90,9 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
     private static final String PREFS_AUTO_ENABLE_KEY = "autoEnable";
 
     private static FtcDashboard instance;
+    private Process logcatProcess;
+    private BufferedReader bufferedReader;
+    private List<String> logEntries;
 
     @OpModeRegistrar
     public static void registerOpMode(OpModeManager manager) {
@@ -176,10 +185,12 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
 
     private NanoWSD server = new NanoWSD(8000) {
         @Override
-        protected NanoWSD.WebSocket openWebSocket(NanoHTTPD.IHTTPSession handshake) {
+        protected WebSocket openWebSocket(IHTTPSession handshake) {
             return new DashWebSocket(handshake);
         }
     };
+
+
 
     private SharedPreferences prefs;
     private final List<MenuItem> enableMenuItems;
@@ -648,6 +659,8 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
     }
 
     private FtcDashboard() {
+        startLogcatCapture();
+        startLogThread();
         core.withConfigRoot(new CustomVariableConsumer() {
             @Override
             public void accept(CustomVariable configRoot) {
@@ -1225,6 +1238,7 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
             opModeManager.unregisterListener(this);
         }
         disable();
+        stopLogcatCapture();
 
         removeStatusView();
     }
@@ -1281,4 +1295,62 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
 
         stopCameraStream();
     }
+    private void startLogcatCapture() {
+        try {
+            String[] cmd = {"logcat", "*:E"};
+            logcatProcess = Runtime.getRuntime().exec(cmd);
+            bufferedReader = new BufferedReader(new InputStreamReader(logcatProcess.getInputStream()));
+            logEntries = new ArrayList<>();
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to start Logcat capture: " + e.getMessage());
+        }
+    }
+    private void stopLogcatCapture() {
+        if (logcatProcess != null) {
+            logcatProcess.destroy();
+            logcatProcess = null;
+        }
+    }
+    private void sendLogsToDashboard(List<String> logs) {
+        TelemetryPacket packet = new TelemetryPacket();
+        packet.put("logcat-status", "capturing");
+
+        for (int i = 0; i < logs.size(); i++) {
+            packet.put("Log Entry " + i, logs.get(i));
+        }
+
+        sendTelemetryPacket(packet);
+    }
+    private void startLogThread() {
+        Thread logThread = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    while (bufferedReader != null && bufferedReader.ready()) {
+                        String logEntry = bufferedReader.readLine();
+                        if (logEntry != null && logEntry.contains("OpModeManager")) {
+                            logEntries.add(logEntry);
+                        }
+                    }
+
+                    if (!logEntries.isEmpty()) {
+                        sendLogsToDashboard(logEntries);
+                        logEntries.clear();
+                    }
+                } catch (IOException e) {
+                    Log.w(TAG, "Error reading logcat: " + e.getMessage());
+                }
+
+                try {
+                    Thread.sleep(100); // Adjust delay as needed
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
+        logThread.start();
+    }
+
+
+
+
 }

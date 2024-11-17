@@ -9,12 +9,12 @@ import BaseView, {
 } from './BaseView';
 import { RootState } from '@/store/reducers';
 
-type TelemetryViewProps = BaseViewProps & BaseViewHeadingProps;
+type LogcatViewProps = BaseViewProps & BaseViewHeadingProps;
 
-const TelemetryView = ({
+const LogcatView = ({
   isDraggable = false,
   isUnlocked = false,
-}: TelemetryViewProps) => {
+}: LogcatViewProps) => {
   const [log, setLog] = useState<string[]>([]);
   const [data, setData] = useState<{ [key: string]: string }>({});
 
@@ -45,9 +45,9 @@ const TelemetryView = ({
     );
   }, [packets]);
 
-const telemetryLines = Object.keys(data).map((key) => {
+const logcatLines = Object.keys(data).map((key) => {
   // Check if the key contains the string "Log Entry "
-  if (!key.includes("Log Entry ")) {
+  if (key.includes("Log Entry ")) {
     return (
       <span
         key={key}
@@ -60,19 +60,19 @@ const telemetryLines = Object.keys(data).map((key) => {
   return null;
 });
 
-  const telemetryLog = log.map((line, i) => (
+  const logcatLog = log.map((line, i) => (
     <span key={i} dangerouslySetInnerHTML={{ __html: `${line}<br />` }} />
   ));
 
   return (
     <BaseView isUnlocked={isUnlocked}>
-      <BaseViewHeading isDraggable={isDraggable}>Telemetry</BaseViewHeading>
+      <BaseViewHeading isDraggable={isDraggable}>Logcat</BaseViewHeading>
       <BaseViewBody>
-        <p>{telemetryLines}</p>
-        <p>{telemetryLog}</p>
+        <p style={{ color: 'red' }}>{logcatLines}</p>
+        <p style={{ color: 'red' }}>{logcatLog}</p>
       </BaseViewBody>
     </BaseView>
   );
 };
 
-export default TelemetryView;
+export default LogcatView;

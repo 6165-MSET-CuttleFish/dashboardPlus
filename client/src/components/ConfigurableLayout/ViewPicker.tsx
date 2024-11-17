@@ -80,6 +80,13 @@ const listContent = [
     iconBg: 'bg-blue-500',
   },
   {
+      title: 'Logcat View',
+      view: ConfigurableView.LOGCAT_VIEW,
+      icon: <ApiIcon className="h-5 w-5" />,
+      customStyles: 'focus:ring-blue-600',
+      iconBg: 'bg-purple-500',
+    },
+  {
     title: 'Graph View',
     view: ConfigurableView.GRAPH_VIEW,
     icon: <ChartIcon className="h-6 w-6 text-white" />,

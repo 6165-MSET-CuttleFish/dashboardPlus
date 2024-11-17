@@ -10,6 +10,7 @@ import GraphView from '@/components/views/GraphView/GraphView';
 import ConfigView from '@/components/views/ConfigView/ConfigView';
 import TelemetryView from '@/components/views/TelemetryView';
 import FieldView from '@/components/views/FieldView/FieldView';
+import LogcatView from '@/components/views/LogcatView';
 
 const LayoutPreset = {
   DEFAULT: 'DEFAULT',
@@ -44,6 +45,9 @@ const LAYOUT_DETAILS: { [key in Values<typeof LayoutPreset>]: Layout } = {
         <Tile row={3} col={3}>
           <TelemetryView />
         </Tile>
+        <Tile row={3} col={1}>
+          <LogcatView />
+        </Tile>
       </TileGrid>
     ),
   },
@@ -66,6 +70,9 @@ const LAYOUT_DETAILS: { [key in Values<typeof LayoutPreset>]: Layout } = {
         <Tile row={3} col={3}>
           <TelemetryView />
         </Tile>
+        <Tile row={3} col={1}>
+          <LogcatView />
+        </Tile>
       </TileGrid>
     ),
   },
@@ -78,6 +85,9 @@ const LAYOUT_DETAILS: { [key in Values<typeof LayoutPreset>]: Layout } = {
         </Tile>
         <Tile row={1} col={2}>
           <GraphView />
+        </Tile>
+        <Tile row={2} col={1}>
+          <LogcatView />
         </Tile>
       </TileGrid>
     ),
@@ -94,6 +104,9 @@ const LAYOUT_DETAILS: { [key in Values<typeof LayoutPreset>]: Layout } = {
         </Tile>
         <Tile row={2} col={2}>
           <TelemetryView />
+        </Tile>
+        <Tile row={3} col={1}>
+          <LogcatView />
         </Tile>
       </TileGrid>
     ),
